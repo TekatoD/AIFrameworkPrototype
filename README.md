@@ -1,2 +1,4 @@
 # AIFrameworkPrototype
-Some initial shitcoding for the AIFramework project
+This repository only contains some first tryings 
+to implement AIFramework. Nothing really special and serious, 
+just some tryings.
