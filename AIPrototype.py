@@ -2,9 +2,8 @@
 class DataHolder:
 
     def __init__(self, dict = None):
-        if dict is None:
-            self.mDataDict = {}
-        else:
+        self.mDataDict = {}
+        if dict is not None:
             self.mDataDict.update(dict)
 
     def setData(self, key, value):
@@ -20,9 +19,8 @@ class Condition:
 
     def __init__(self, name, dict = None):
         self.mName = name
-        if dict is None:
-            self.mDataConditions = {}
-        else:
+        self.mDataConditions = {}
+        if dict is not None:
             self.mDataConditions.update(dict)
 
     def setName(self, name):
@@ -65,9 +63,8 @@ class ConditionGenerator:
 
     def __init__(self, dataHolder = DataHolder(), conditionsList = None):
         self.mDataHolder = dataHolder
-        if conditionsList is None:
-            self.mConditionsList = []
-        else:
+        self.mConditionsList = []
+        if conditionsList is not None:
             self.mConditionsList = conditionsList
         self.mGeneratedConditionsList = []
 
@@ -85,7 +82,7 @@ class ConditionGenerator:
         self.mGeneratedConditionsList.clear()
         for cnd in self.mConditionsList:
             appendNeeded = True
-            for name, value in cnd.getDataConditions():
+            for name, value in cnd.getDataConditions().items():
                 if value  != self.mDataHolder.getData(name):
                     appendNeeded = False
                     break
@@ -97,9 +94,8 @@ class TransitionGenerator:
 
     def __init__(self, conditionGenerator = ConditionGenerator(), transitionList = None):
         self.mConditionGenerator = conditionGenerator
-        if transitionList is None:
-            self.mTransitionList = []
-        else:
+        self.mTransitionList = []
+        if transitionList is not None:
             self.mTransitionList = transitionList
         self.mGeneratedTransitions = []
 
@@ -122,7 +118,7 @@ class TransitionGenerator:
 
 class StateMachine:
 
-    def __init__(self, initalState = 'initial', transitionGenerator = TransitionGenerator()):
+    def __init__(self, initalState = 'init', transitionGenerator = TransitionGenerator()):
         self.mStates = {}
         self.mTransitionGenerator = transitionGenerator
         self.mCurrentState = initalState
@@ -133,9 +129,81 @@ class StateMachine:
     def run(self):
         #it seems that this is a weird beahaviour but this is done reasonly
         availibleTransitions = sorted(list(filter(lambda trn: trn.getStart() == self.mCurrentState, self.mTransitionGenerator.run())),
-                                      key=lambda trn: len(trn.getConditions()), reversed=True)
+                                      key=lambda trn: len(trn.getConditions()), reverse=True)
         if len(availibleTransitions) > 0:
             self.mCurrentState = availibleTransitions[0].getFinish()
 
         self.mStates[self.mCurrentState].run()
+
+
+#Famework ends here
+###############################################################################
+###############################################################################
+#Testing now
+
+import random
+
+class WorldPerceptor(DataHolder):
+
+    def __init__(self, dict = None):
+        dict = {}
+        dict['x'] = 0
+        dict['y'] = 0
+        dict['z'] = 0
+
+        self.mUpdate = ['x', 'y', 'z']
+
+        super().__init__(dict)
+
+    def updateData(self):
+        r = random.randrange(4)
+        for i in range(len(self.mUpdate)):
+            if i != r:
+                self.mDataDict[self.mUpdate[i]] = 0
+            else:
+                self.mDataDict[self.mUpdate[i]] = 5
+        print(self.mDataDict)
+
+wP = WorldPerceptor()
+
+cndList = [Condition("x_is_up", dict={"x": 5}), Condition("y_is_up", dict={"y": 5}), Condition("z_is_up", dict={"z": 5})]
+trnList = [Transition("init", "xrun", conditions=["x_is_up"]), Transition("init", "yrun", conditions=["y_is_up"]), Transition("init", "zrun", conditions=["z_is_up"]),
+           Transition("xrun", "zrun", conditions=["z_is_up"]), Transition("xrun", "yrun", conditions=["y_is_up"]),
+           Transition("zrun", "xrun", conditions=["x_is_up"]), Transition("zrun", "yrun", conditions=["y_is_up"]),
+           Transition("yrun", "zrun", conditions=["z_is_up"]), Transition("yrun", "xrun", conditions=["x_is_up"])]
+
+class Init(State):
+    def run(self):
+        print('Init is active')
+
+class YRun(State):
+    def run(self):
+        print('Y is active')
+
+class XRun(State):
+    def run(self):
+        print('X is active')
+
+class ZRun(State):
+    def run(self):
+        print('Z is active')
+
+cG = ConditionGenerator(wP, cndList)
+tG = TransitionGenerator(conditionGenerator=cG, transitionList=trnList)
+
+sM = StateMachine(transitionGenerator=tG)
+sM.addState('init', state=Init())
+sM.addState('xrun', state=XRun())
+sM.addState('yrun', state=YRun())
+sM.addState('zrun', state=ZRun())
+
+
+for i in range(10):
+    sM.run()
+
+
+
+
+
+
 
