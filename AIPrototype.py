@@ -56,6 +56,11 @@ class Transition:
     def getConditions(self):
         return self.mConditions
 
+class State:
+
+    def run(self):
+        raise NotImplementedError
+
 class ConditionGenerator:
 
     def __init__(self, dataHolder = DataHolder(), conditionsList = None):
@@ -87,4 +92,50 @@ class ConditionGenerator:
             if appendNeeded:
                 self.mGeneratedConditionsList.append(cnd.getName())
         return self.mGeneratedConditionsList
+
+class TransitionGenerator:
+
+    def __init__(self, conditionGenerator = ConditionGenerator(), transitionList = None):
+        self.mConditionGenerator = conditionGenerator
+        if transitionList is None:
+            self.mTransitionList = []
+        else:
+            self.mTransitionList = transitionList
+        self.mGeneratedTransitions = []
+
+    def addTransition(self, transition):
+        self.mTransitionList.append(transition)
+
+    def run(self):
+        self.mGeneratedTransitions.clear()
+        currentConditions = self.mConditionGenerator.run()
+        for trn in self.mTransitionList:
+            appendNeeded = True
+            for name in trn.getConditions():
+                if not name in currentConditions:
+                    appendNeeded = False
+                    break
+            if appendNeeded:
+                self.mGeneratedTransitions.append(trn)
+        return self.mGeneratedTransitions
+
+
+class StateMachine:
+
+    def __init__(self, initalState = 'initial', transitionGenerator = TransitionGenerator()):
+        self.mStates = {}
+        self.mTransitionGenerator = transitionGenerator
+        self.mCurrentState = initalState
+
+    def addState(self, name, state):
+        self.mStates[name] = state
+
+    def run(self):
+        #it seems that this is a weird beahaviour but this is done reasonly
+        availibleTransitions = sorted(list(filter(lambda trn: trn.getStart() == self.mCurrentState, self.mTransitionGenerator.run())),
+                                      key=lambda trn: len(trn.getConditions()), reversed=True)
+        if len(availibleTransitions) > 0:
+            self.mCurrentState = availibleTransitions[0].getFinish()
+
+        self.mStates[self.mCurrentState].run()
 
