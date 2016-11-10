@@ -17,11 +17,17 @@ class DataHolder:
 
 class Condition:
 
-    def __init__(self, name, dict = None):
+    def __init__(self, name, dict = None, greaterThen = None, lesserThen = None):
         self.mName = name
         self.mDataConditions = {}
+        self.mGreaterThen = {}
+        self.mLesserThen = {}
         if dict is not None:
             self.mDataConditions.update(dict)
+        if greaterThen is not None:
+            self.mGreaterThen.update(greaterThen)
+        if lesserThen is not None:
+            self.mLesserThen.update(lesserThen)
 
     def setName(self, name):
         self.mName = name
@@ -35,11 +41,25 @@ class Condition:
     def setDataConditions(self, dict):
         self.mDataConditions.update(dict)
 
+    def getGreaterThen(self):
+        return self.mGreaterThen
+
+    def setGreaterThen(self, greaterThen):
+        self.mGreaterThen.update(greaterThen)
+
+    def getLesserThen(self):
+        return self.mLesserThen
+
+    def setLesserThen(self, lesserThen):
+        self.mLesserThen.update(lesserThen)
+
+
 class Transition:
 
-    def __init__(self, start, finish, conditions = None):
+    def __init__(self, start, finish, conditions = None, priority = 0):
         self.mStart = start
         self.mFinish = finish
+        self.priority = priority
         if conditions is None:
             self.mConditions = []
         else:
@@ -81,12 +101,25 @@ class ConditionGenerator:
         self.mDataHolder.updateData()
         self.mGeneratedConditionsList.clear()
         for cnd in self.mConditionsList:
-            appendNeeded = True
-            for name, value in cnd.getDataConditions().items():
-                if value  != self.mDataHolder.getData(name):
-                    appendNeeded = False
-                    break
-            if appendNeeded:
+            appendEqNeeded = True
+            if len(cnd.getDataConditions()) > 0:
+                for name, value in cnd.getDataConditions().items():
+                    if value != self.mDataHolder.getData(name):
+                        appendEqNeeded = False
+                        break
+            appendGTNeeded = True
+            if len(cnd.getGreaterThen()) > 0:
+                for name, value in cnd.getGreaterThen().items():
+                    if value >= self.mDataHolder.getData(name):
+                        appendGTNeeded = False
+                        break
+            appendLTNeeded = True
+            if len(cnd.getLesserThen()) > 0:
+                for name, value in cnd.getLesserThen().items():
+                    if value <= self.mDataHolder.getData(name):
+                        appendLTNeeded = False
+                        break
+            if appendEqNeeded and appendGTNeeded and appendLTNeeded:
                 self.mGeneratedConditionsList.append(cnd.getName())
         return self.mGeneratedConditionsList
 
@@ -128,9 +161,10 @@ class StateMachine:
 
     def run(self):
         #it seems that this is a weird beahaviour but this is done reasonly
-        availibleTransitions = sorted(list(filter(lambda trn: trn.getStart() == self.mCurrentState, self.mTransitionGenerator.run())),
+        availibleTransitions = sorted(list(filter(lambda trn: trn.getStart() == self.mCurrentState or trn.getStart() == '*', self.mTransitionGenerator.run())),
                                       key=lambda trn: len(trn.getConditions()), reverse=True)
         if len(availibleTransitions) > 0:
+            availibleTransitions = sorted(availibleTransitions, key=lambda trn: trn.priority, reverse=True)
             self.mCurrentState = availibleTransitions[0].getFinish()
 
         self.mStates[self.mCurrentState].run()
@@ -150,6 +184,7 @@ class WorldPerceptor(DataHolder):
         dict['x'] = 0
         dict['y'] = 0
         dict['z'] = 0
+        dict['getaway'] = 0
 
         self.mUpdate = ['x', 'y', 'z']
 
@@ -162,15 +197,17 @@ class WorldPerceptor(DataHolder):
                 self.mDataDict[self.mUpdate[i]] = 0
             else:
                 self.mDataDict[self.mUpdate[i]] = 5
+        self.mDataDict['getaway'] = random.randrange(10)
         print(self.mDataDict)
 
 wP = WorldPerceptor()
 
-cndList = [Condition("x_is_up", dict={"x": 5}), Condition("y_is_up", dict={"y": 5}), Condition("z_is_up", dict={"z": 5})]
+cndList = [Condition("x_is_up", dict={"x": 5}), Condition("y_is_up", dict={"y": 5}), Condition("z_is_up", dict={"z": 5}), Condition("die", greaterThen={'getaway': 4})]
 trnList = [Transition("init", "xrun", conditions=["x_is_up"]), Transition("init", "yrun", conditions=["y_is_up"]), Transition("init", "zrun", conditions=["z_is_up"]),
            Transition("xrun", "zrun", conditions=["z_is_up"]), Transition("xrun", "yrun", conditions=["y_is_up"]),
            Transition("zrun", "xrun", conditions=["x_is_up"]), Transition("zrun", "yrun", conditions=["y_is_up"]),
-           Transition("yrun", "zrun", conditions=["z_is_up"]), Transition("yrun", "xrun", conditions=["x_is_up"])]
+           Transition("yrun", "zrun", conditions=["z_is_up"]), Transition("yrun", "xrun", conditions=["x_is_up"]),
+           Transition('*', 'pechal', conditions=['die'], priority=5), Transition("pechal", 'xrun', conditions=["x_is_up", 'die'], priority=6)]
 
 class Init(State):
     def run(self):
@@ -188,6 +225,10 @@ class ZRun(State):
     def run(self):
         print('Z is active')
 
+class DRun(State):
+    def run(self):
+        print('star!!!')
+
 cG = ConditionGenerator(wP, cndList)
 tG = TransitionGenerator(conditionGenerator=cG, transitionList=trnList)
 
@@ -196,6 +237,7 @@ sM.addState('init', state=Init())
 sM.addState('xrun', state=XRun())
 sM.addState('yrun', state=YRun())
 sM.addState('zrun', state=ZRun())
+sM.addState('pechal', state=DRun())
 
 
 for i in range(10):
