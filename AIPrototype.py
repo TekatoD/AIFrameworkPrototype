@@ -17,17 +17,23 @@ class DataHolder:
 
 class Condition:
 
-    def __init__(self, name, dict = None, greaterThen = None, lesserThen = None):
+    def __init__(self, name, dict = None, greaterThen = None, lesserThen = None, lesserThenCond = None, greaterThenCond = None):
         self.mName = name
         self.mDataConditions = {}
         self.mGreaterThen = {}
         self.mLesserThen = {}
+        self.mLesserThenCond = {}
+        self.mGreaterThenCond = {}
         if dict is not None:
             self.mDataConditions.update(dict)
         if greaterThen is not None:
             self.mGreaterThen.update(greaterThen)
         if lesserThen is not None:
             self.mLesserThen.update(lesserThen)
+        if greaterThenCond is not None:
+            self.mGreaterThenCond.update(greaterThenCond)
+        if lesserThenCond is not None:
+            self.mLesserThenCond.update(lesserThenCond)
 
     def setName(self, name):
         self.mName = name
@@ -52,6 +58,12 @@ class Condition:
 
     def setLesserThen(self, lesserThen):
         self.mLesserThen.update(lesserThen)
+
+    def getLesserThenCond(self):
+        return self.mLesserThenCond
+
+    def getGreaterThenCond(self):
+        return self.mLesserThenCond
 
 
 class Transition:
@@ -119,7 +131,19 @@ class ConditionGenerator:
                     if value <= self.mDataHolder.getData(name):
                         appendLTNeeded = False
                         break
-            if appendEqNeeded and appendGTNeeded and appendLTNeeded:
+            appendGTNCeeded = True
+            if len(cnd.getGreaterThenCond()) > 0:
+                for name, value in cnd.getGreaterThenCond().items():
+                    if self.mDataHolder.getData(value) >= self.mDataHolder.getData(name):
+                        appendGTNCeeded = False
+                        break
+            appendLTNCeeded = True
+            if len(cnd.getLesserThenCond()) > 0:
+                for name, value in cnd.getLesserThenCond().items():
+                    if self.mDataHolder.getData(value) <= self.mDataHolder.getData(name):
+                        appendLTNCeeded = False
+                        break
+            if appendEqNeeded and appendGTNeeded and appendLTNeeded and appendGTNCeeded and appendLTNCeeded:
                 self.mGeneratedConditionsList.append(cnd.getName())
         return self.mGeneratedConditionsList
 
@@ -207,7 +231,7 @@ trnList = [Transition("init", "xrun", conditions=["x_is_up"]), Transition("init"
            Transition("xrun", "zrun", conditions=["z_is_up"]), Transition("xrun", "yrun", conditions=["y_is_up"]),
            Transition("zrun", "xrun", conditions=["x_is_up"]), Transition("zrun", "yrun", conditions=["y_is_up"]),
            Transition("yrun", "zrun", conditions=["z_is_up"]), Transition("yrun", "xrun", conditions=["x_is_up"]),
-           Transition('*', 'pechal', conditions=['die'], priority=5), Transition("pechal", 'xrun', conditions=["x_is_up", 'die'], priority=6)]
+           Transition('*', 'pechal', conditions=['die'], priority=5), Transition("pechal", 'xrun', conditions=["x_is_up"], priority=6)]
 
 class Init(State):
     def run(self):
